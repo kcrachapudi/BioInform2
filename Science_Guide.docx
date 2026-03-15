@@ -1,0 +1,83 @@
+Biological Concepts Behind BioInform2
+
+This document explains the biological concepts behind the sequencing pipeline used in BioInform2.
+
+DNA Basics
+
+DNA (Deoxyribonucleic Acid) contains genetic information for all living organisms.
+
+DNA is composed of four nucleotides:
+
+A – Adenine
+T – Thymine
+C – Cytosine
+G – Guanine
+
+Base pairing rules:
+
+A pairs with T
+C pairs with G
+
+The sequence of these nucleotides encodes biological instructions.
+
+Next Generation Sequencing
+
+Next Generation Sequencing is a technology that allows millions of DNA fragments to be sequenced simultaneously.
+
+NGS technologies generate massive volumes of genomic data that must be processed using bioinformatics pipelines.
+
+Sequencing machines produce output data in the FASTQ format.
+
+FASTQ Data
+
+FASTQ files store sequencing reads along with quality scores.
+
+Example structure:
+
+@SEQ_ID
+GATTTGGGGTTCAAAGCAGTATCGATCAAATAGTAAAT
++
+!''*((((***+))%%%++)(%%%%).1***-+*''))**
+
+The quality scores indicate confidence in each base call.
+
+Sequence Alignment
+
+Sequence alignment maps DNA reads to a reference genome.
+
+This step determines where each DNA fragment originates from within the genome.
+
+The alignment tool used in this pipeline is BWA.
+
+SAM File
+
+The output of alignment is stored in the SAM (Sequence Alignment Map) format.
+
+SAM files contain:
+
+read name
+
+mapping position
+
+alignment quality
+
+sequence information
+
+SAM files are typically converted to BAM format for efficient storage and analysis.
+
+Role of Bioinformatics Pipelines
+
+Bioinformatics pipelines automate genomic analysis by connecting multiple tools into a single workflow.
+
+These pipelines are essential for:
+
+genomic research
+
+disease mutation discovery
+
+cancer genomics
+
+personalized medicine
+
+
+

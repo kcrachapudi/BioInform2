@@ -1,0 +1,148 @@
+BioInform2 Technical Guide
+Introduction
+
+BioInform2 is a modular bioinformatics pipeline designed to process Next Generation Sequencing data using a workflow orchestration system.
+
+The project demonstrates how modern genomics pipelines are structured using reusable workflow components and automated data processing.
+
+The pipeline is implemented using the workflow engine Nextflow.
+
+Pipeline Architecture
+
+The BioInform2 pipeline processes sequencing data through several stages.
+
+Pipeline flow:
+
+FASTQ Input
+      │
+      ▼
+Quality Control
+      │
+      ▼
+Reference Genome Indexing
+      │
+      ▼
+Sequence Alignment
+      │
+      ▼
+SAM Output
+Nextflow Workflow System
+
+Nextflow is a workflow orchestration system designed for scalable scientific pipelines.
+
+Instead of executing commands sequentially in a script, workflows are defined as independent processes connected through data flow.
+
+Advantages:
+
+reproducible pipelines
+
+automatic parallel execution
+
+modular pipeline design
+
+easy integration with HPC or cloud systems
+
+Workflow Modules
+
+The pipeline consists of three modules.
+
+FASTQC Module
+
+This module performs sequencing quality control.
+
+Tool used: FastQC
+
+Purpose:
+
+detect sequencing errors
+
+measure base quality
+
+detect contamination
+
+analyze GC content
+
+Input:
+
+FASTQ sequencing reads
+
+Output:
+
+FastQC HTML quality report
+
+BWA Index Module
+
+This module prepares the reference genome for alignment.
+
+Tool used: BWA
+
+Command:
+
+bwa index reference.fa
+
+Indexing builds internal lookup structures that allow rapid alignment of DNA sequences.
+
+Output:
+
+Reference genome index files.
+
+BWA Alignment Module
+
+This module aligns sequencing reads to the reference genome.
+
+Command used:
+
+bwa mem reference.fa sample.fastq > aligned.sam
+
+The output is a SAM file containing alignment information.
+
+SAM files contain:
+
+read identifier
+
+mapping location
+
+alignment score
+
+sequence data
+
+Nextflow Process Structure
+
+Each Nextflow process defines three main sections:
+
+Input
+Output
+Script
+
+Example process:
+
+process FASTQC {
+
+ input:
+ path reads
+
+ output:
+ path "*.html"
+
+ script:
+ """
+ fastqc $reads
+ """
+}
+
+This design makes workflows modular and reusable.
+
+Engineering Concepts Demonstrated
+
+The BioInform2 project demonstrates key engineering practices used in bioinformatics pipelines:
+
+modular workflow design
+
+reproducible research pipelines
+
+automation of genomics analysis
+
+scientific data processing
+
+Linux-based computational biology workflows
+
