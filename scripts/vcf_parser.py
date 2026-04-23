@@ -20,3 +20,21 @@ def load_vcf(vcf_path):
     df["QUAL"] = pd.to_numeric(df["QUAL"], errors="coerce")
 
     return df
+
+
+def summarize_vcf(df):
+    if df.empty:
+        return {
+            "total_variants": 0,
+            "message": "No variants detected"
+        }
+
+    snps = df[(df["REF"].str.len() == 1) & (df["ALT"].str.len() == 1)]
+    indels = df[(df["REF"].str.len() != 1) | (df["ALT"].str.len() != 1)]
+
+    return {
+        "total_variants": len(df),
+        "snps": len(snps),
+        "indels": len(indels),
+        "avg_quality": df["QUAL"].mean()
+    }
