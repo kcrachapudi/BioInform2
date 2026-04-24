@@ -22,7 +22,7 @@ fastq_path = None
 # SAMPLE MODE
 # -------------------------
 if mode == "Use Sample Data":
-    fastq_path = "data/sample.fastq"
+    fastq_path = "data/real.fastq"
     st.info("Using built-in sample dataset")
 
 # -------------------------
