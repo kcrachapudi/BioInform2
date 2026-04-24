@@ -96,7 +96,74 @@ def run_pipeline(fastq, reference="reference/reference.fa"):
 
 import pandas as pd
 
+import pandas as pd
+
+
+def parse_info_field(info_str):
+    info_dict = {}
+    for item in info_str.split(";"):
+        if "=" in item:
+            key, value = item.split("=", 1)
+            info_dict[key] = value
+    return info_dict
+
+
 def parse_vcf(vcf_path):
+    rows = []
+
+    with open(vcf_path, "r") as f:
+        for line in f:
+            if line.startswith("#"):
+                continue
+
+            parts = line.strip().split("\t")
+
+            chrom = parts[0]
+            pos = int(parts[1])
+            ref = parts[3]
+            alt = parts[4]
+            qual = parts[5]
+            info = parts[7]
+
+            info_dict = parse_info_field(info)
+
+            # -------------------------
+            # Extract DP4
+            # -------------------------
+            ref_count = 0
+            alt_count = 0
+            alt_freq = 0
+
+            if "DP4" in info_dict:
+                vals = list(map(int, info_dict["DP4"].split(",")))
+                ref_count = vals[0] + vals[1]
+                alt_count = vals[2] + vals[3]
+
+                total = ref_count + alt_count
+                if total > 0:
+                    alt_freq = alt_count / total
+
+            # -------------------------
+            # Variant Type
+            # -------------------------
+            if len(ref) == 1 and len(alt) == 1:
+                var_type = "SNP"
+            else:
+                var_type = "INDEL"
+
+            rows.append({
+                "CHROM": chrom,
+                "POS": pos,
+                "REF": ref,
+                "ALT": alt,
+                "QUAL": qual,
+                "REF_COUNT": ref_count,
+                "ALT_COUNT": alt_count,
+                "ALT_FREQ": round(alt_freq, 3),
+                "TYPE": var_type
+            })
+
+    return pd.DataFrame(rows)
     rows = []
     with open(vcf_path, "r") as f:
         for line in f:
