@@ -10,19 +10,27 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 LOG_FILE = os.path.join(LOGS_DIR, "pipeline.log")
 
 
-def run_command(command):
+def run_command(command_list, stdout_file=None):
     with open(LOG_FILE, "a") as log:
-        log.write(f"\n[COMMAND] {command}\n")
+        log.write(f"\n[COMMAND] {' '.join(command_list)}\n")
 
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True
-        )
+        if stdout_file:
+            with open(stdout_file, "w") as out:
+                result = subprocess.run(
+                    command_list,
+                    stdout=out,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+        else:
+            result = subprocess.run(
+                command_list,
+                capture_output=True,
+                text=True
+            )
 
-        log.write(result.stdout)
-        log.write(result.stderr)
+        log.write(result.stdout if result.stdout else "")
+        log.write(result.stderr if result.stderr else "")
 
         if result.returncode != 0:
             raise Exception(result.stderr)
@@ -30,35 +38,59 @@ def run_command(command):
     return result.stdout
 
 
+# ---------- STEPS ----------
+
 def index_reference(reference):
     if not os.path.exists(reference + ".bwt"):
-        run_command(f"bwa index {reference}")
+        run_command(["bwa", "index", reference])
 
 
 def run_alignment(fastq, reference):
-    return run_command(
-        f"bwa mem {reference} {fastq} > {RESULTS_DIR}/aligned.sam"
+    sam_path = f"{RESULTS_DIR}/aligned.sam"
+
+    run_command(
+        ["bwa", "mem", reference, fastq],
+        stdout_file=sam_path
     )
+
+    return sam_path
 
 
 def sam_to_bam():
-    run_command(
-        f"samtools view -S -b {RESULTS_DIR}/aligned.sam > {RESULTS_DIR}/aligned.bam"
-    )
+    run_command([
+        "samtools", "view",
+        "-b",
+        f"{RESULTS_DIR}/aligned.sam",
+        "-o", f"{RESULTS_DIR}/aligned.bam"
+    ])
 
 
 def sort_bam():
-    run_command(
-        f"samtools sort {RESULTS_DIR}/aligned.bam -o {RESULTS_DIR}/aligned_sorted.bam"
-    )
+    run_command([
+        "samtools", "sort",
+        f"{RESULTS_DIR}/aligned.bam",
+        "-o", f"{RESULTS_DIR}/aligned_sorted.bam"
+    ])
+
+
+def index_bam():
+    run_command([
+        "samtools", "index",
+        f"{RESULTS_DIR}/aligned_sorted.bam"
+    ])
 
 
 def call_variants(reference):
-    run_command(
-        f"bcftools mpileup -f {reference} {RESULTS_DIR}/aligned_sorted.bam | "
+    # Use shell ONLY here for pipe
+    command = (
+        f"bcftools mpileup -f {reference} -d 1000 {RESULTS_DIR}/aligned_sorted.bam | "
         f"bcftools call -mv -Ov -o {RESULTS_DIR}/variants.vcf"
     )
 
+    run_command(["bash", "-c", command])
+
+
+# ---------- MAIN PIPELINE ----------
 
 def run_pipeline(fastq):
     reference = "reference/reference.fa"
@@ -67,6 +99,17 @@ def run_pipeline(fastq):
     run_alignment(fastq, reference)
     sam_to_bam()
     sort_bam()
+    index_bam()
     call_variants(reference)
 
     return f"{RESULTS_DIR}/variants.vcf"
+
+
+# ---------- CLI ENTRY ----------
+
+if __name__ == "__main__":
+    input_fastq = "data/real.fastq"  # change if needed
+    vcf_path = run_pipeline(input_fastq)
+
+    print(f"\n✅ Pipeline completed")
+    print(f"📄 VCF generated at: {vcf_path}")

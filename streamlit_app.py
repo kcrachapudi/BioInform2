@@ -2,9 +2,12 @@ import streamlit as st
 import pandas as pd
 import os
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from scripts.pipeline import run_pipeline
 
-CLOUD_MODE = True
+CLOUD_MODE = os.getenv("CLOUD_MODE")
 
 st.title("🧬 BioInform2: Variant Calling Pipeline")
 
@@ -17,9 +20,14 @@ uploaded_file = None
 if not use_sample:
     uploaded_file = st.file_uploader("Upload FASTQ", type=["fastq"])
 
+
 # ---------- VCF PARSER ----------
 def parse_vcf(vcf_path):
     rows = []
+
+    if not os.path.exists(vcf_path):
+        st.error(f"VCF file not found: {vcf_path}")
+        return pd.DataFrame()
 
     with open(vcf_path) as f:
         for line in f:
@@ -28,47 +36,50 @@ def parse_vcf(vcf_path):
 
             parts = line.strip().split("\t")
 
-            chrom = parts[0]
-            pos = int(parts[1])
-            ref = parts[3]
-            alt = parts[4]
-            info = parts[7]
+            # 🔴 Safety check
+            if len(parts) < 8:
+                continue
 
-            dp = 0
-            dp4 = None
+            try:
+                chrom = parts[0]
+                pos = int(parts[1])
+                ref = parts[3]
+                alt = parts[4]
+                info = parts[7]
 
-            for field in info.split(";"):
-                if field.startswith("DP="):
-                    dp = int(field.split("=")[1])
-                if field.startswith("DP4="):
-                    dp4 = list(map(int, field.split("=")[1].split(",")))
+                # Skip non-variant rows
+                if alt == "." or alt == "<*>":
+                    continue
 
-            alt_freq = 0
-            if dp4:
-                ref_count = dp4[0] + dp4[1]
-                alt_count = dp4[2] + dp4[3]
-                total = ref_count + alt_count
+                dp = 0
+                alt_freq = 0
 
-                if total > 0:
-                    alt_freq = alt_count / total
+                for field in info.split(";"):
+                    if field.startswith("DP="):
+                        dp = int(field.split("=")[1])
 
-            rows.append({
-                "CHROM": chrom,
-                "POS": pos,
-                "REF": ref,
-                "ALT": alt,
-                "DP": dp,
-                "ALT_FREQ": alt_freq
-            })
+                rows.append({
+                    "CHROM": chrom,
+                    "POS": pos,
+                    "REF": ref,
+                    "ALT": alt,
+                    "DP": dp,
+                    "ALT_FREQ": alt_freq
+                })
+
+            except Exception:
+                # Skip bad lines safely
+                continue
 
     return pd.DataFrame(rows)
+
 
 # ---------- RUN ----------
 if st.button("Run Pipeline"):
 
     if CLOUD_MODE:
         st.info("Running in demo mode (precomputed VCF)")
-        vcf_path = "results/demo_variants.vcf"
+        vcf_path = "results/variants.vcf"
 
     else:
         if use_sample:
@@ -86,18 +97,33 @@ if st.button("Run Pipeline"):
 
         vcf_path = run_pipeline(fastq_path)
 
+    # ---------- DEBUG ----------
+    st.write("VCF Path:", vcf_path)
+
+    # ---------- PARSE ----------
     df = parse_vcf(vcf_path)
 
     st.success("Pipeline completed!")
 
-    # ---------- RAW ----------
+    # ---------- ALWAYS SHOW RAW ----------
+    st.subheader("Raw Parsed Data (Debug View)")
+    st.write("Shape:", df.shape)
+    st.dataframe(df, width='stretch')
+
+    # ---------- GUARD ----------
+    if df.empty or "POS" not in df.columns:
+        st.warning("No valid variants found or parsing failed.")
+        st.stop()
+
+    # ---------- ORIGINAL RAW GRID ----------
     st.subheader("Raw Variants")
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, width='stretch')
 
     # ---------- FILTER ----------
     st.subheader("Filter Variants")
 
-    min_pos, max_pos = int(df["POS"].min()), int(df["POS"].max())
+    min_pos = int(df["POS"].min())
+    max_pos = int(df["POS"].max())
 
     pos_range = st.slider(
         "Position Range",
@@ -120,12 +146,12 @@ if st.button("Run Pipeline"):
         (df["ALT_FREQ"] >= min_freq)
     ]
 
+    # ---------- FILTERED GRID ----------
     st.subheader("Filtered Variants")
-    st.dataframe(filtered_df, use_container_width=True)
+    st.dataframe(filtered_df, width='stretch')
 
-    # ---------- VISUAL ----------
+    # ---------- VISUALS ----------
     st.subheader("Variant Distribution")
-
     st.bar_chart(df["POS"].value_counts().sort_index())
 
     st.subheader("ALT Frequency Distribution")
@@ -137,5 +163,3 @@ if st.button("Run Pipeline"):
         filtered_df.to_csv(index=False),
         "filtered_variants.csv"
     )
-
-
